@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "clankertest",
+  "main": "index.html", // Point to your entry file
+  "compatibility_date": "2026-23-26",
+
+  // Environment variables
+  "vars": {
+    "ENVIRONMENT": "production"
+  },
+
+  // Examples of common bindings (uncomment to use)
+  // "d1_databases": [{ "binding": "DB", "database_name": "my-db", "database_id": "..." }],
+  // "kv_namespaces": [{ "binding": "MY_KV", "id": "..." }],
+  // "r2_buckets": [{ "binding": "MY_BUCKET", "bucket_name": "..." }],
+  // "ai": { "binding": "AI" },
+
+  "observability": {
+    "enabled": true
+  },
+
+  "env": {
+    "staging": {
+      "name": "ClankerTest"
+    }
+  }
+}
