@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "clankertest",
   "main": "index.html", // Point to your entry file
-  "compatibility_date": "2026-04-03",
+  "compatibility_date": "2026-04-23"
 
   // Environment variables
   "vars": {
