@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Clanker Test</title>
+    <style>
+      :root {
+        --neon: #00ff66;
+        --bg: #050505;
+        --accent: #ff0055;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: white;
+        font-family: "Courier New", monospace;
+        overflow: hidden;
+        display: flex;
+      }
+
+      #sidebar {
+        width: 280px;
+        background: rgba(10, 10, 15, 0.98);
+        border-right: 2px solid #222;
+        padding: 20px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .stat-card {
+        background: #000;
+        border: 1px solid #333;
+        padding: 12px;
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+      }
+      .stat-card::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 4px;
+        height: 100%;
+        background: var(--neon);
+      }
+      .label {
+        font-size: 10px;
+        color: #666;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+      .value {
+        font-size: 24px;
+        color: #fff;
+      }
+
+      .ctrl {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-top: 10px;
+      }
+      input[type="range"] {
+        width: 100%;
+        accent-color: var(--neon);
+        cursor: pointer;
+      }
+
+      button {
+        background: var(--neon);
+        border: none;
+        padding: 15px;
+        border-radius: 4px;
+        font-weight: 900;
+        cursor: pointer;
+        color: #000;
+        text-transform: uppercase;
+        margin-top: 10px;
+      }
+      button:hover {
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="sidebar">
+      <h1 style="font-size: 18px; margin: 0; color: var(--neon)">
+        Clanker Test
+      </h1>
+
+      <div class="stat-card">
+        <div class="label">Generation</div>
+        <div id="gen" class="value">1</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="label">Best Distance</div>
+        <div id="best" class="value">0.0m</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="label">Time Compression: <span id="speedVal">1x</span></div>
+        <input type="range" id="speedRange" min="1" max="50" value="1" />
+      </div>
+
+      <div class="ctrl">
+        <div class="label">Mutation DNA: <span id="mutateVal">15%</span></div>
+        <input type="range" id="mutateRange" min="1" max="100" value="15" />
+      </div>
+
+      <button onclick="nextGen()">Evolve Now</button>
+
+      <div
+        style="font-size: 10px; color: #444; margin-top: auto; line-height: 1.4"
+      >
+        SYSTEM STATUS:<br />
+        - Joint Constraints: ACTIVE (Max 45°)<br />
+        - Muscle Torque: ENABLED<br />
+        - Gravity: 9.8 m/s²<br />
+        - Collision Filter: GHOST MODE
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+
+    <script>
+      const {
+        Engine,
+        Render,
+        Runner,
+        Bodies,
+        Composite,
+        Constraint,
+        Body,
+        Events,
+      } = Matter;
+
+      const POP_SIZE = 30;
+      const RUN_TIME = 25;
+      const START_X = 200;
+      const FLOOR_Y = 650;
+
+      let engine,
+        render,
+        creatures = [],
+        generation = 1,
+        frames = 0,
+        record = 0;
+
+      function init() {
+        engine = Engine.create();
+        render = Render.create({
+          element: document.body,
+          engine: engine,
+          options: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            wireframes: false,
+            background: "#050505",
+          },
+        });
+
+        const ground = Bodies.rectangle(50000, FLOOR_Y + 50, 100000, 100, {
+          isStatic: true,
+          friction: 1,
+          render: { fillStyle: "#111" },
+        });
+        Composite.add(engine.world, ground);
+
+        // Distance Markers
+        Events.on(render, "afterRender", () => {
+          const ctx = render.context;
+          const view = render.bounds;
+          ctx.fillStyle = "#333";
+          for (let x = 0; x < 50000; x += 100) {
+            let sx = x - view.min.x;
+            if (sx > 0 && sx < window.innerWidth) {
+              ctx.fillRect(sx, FLOOR_Y, 2, 30);
+              ctx.font = "12px monospace";
+              ctx.fillText(x + "m", sx + 5, FLOOR_Y + 25);
+            }
+          }
+        });
+
+        Render.run(render);
+        spawn(null);
+        loop();
+      }
+
+      class Biped {
+        constructor(dna) {
+          // DNA: 16 weights for a more complex 2-layer brain
+          this.dna =
+            dna || Array.from({ length: 16 }, () => Math.random() * 2 - 1);
+          this.fitness = 0;
+          this.isDead = false;
+
+          const group = Body.nextGroup(true);
+          const filter = { group: group, category: 0x0002, mask: 0x0001 };
+          const hue = Math.random() * 360;
+
+          // Humanoid Structure
+          this.torso = Bodies.rectangle(START_X, FLOOR_Y - 120, 25, 60, {
+            collisionFilter: filter,
+            render: { fillStyle: "#eee" },
+            friction: 0.5,
+          });
+
+          // Left Leg (Thigh + Shin)
+          this.thighL = Bodies.rectangle(START_X, FLOOR_Y - 80, 12, 40, {
+            collisionFilter: filter,
+            render: { fillStyle: `hsl(${hue}, 80%, 50%)` },
+          });
+          this.shinL = Bodies.rectangle(START_X, FLOOR_Y - 40, 10, 40, {
+            collisionFilter: filter,
+            render: { fillStyle: `hsl(${hue}, 80%, 30%)` },
+          });
+
+          // Right Leg (Thigh + Shin)
+          this.thighR = Bodies.rectangle(START_X, FLOOR_Y - 80, 12, 40, {
+            collisionFilter: filter,
+            render: { fillStyle: `hsl(${hue}, 80%, 50%)` },
+            opacity: 0.6,
+          });
+          this.shinR = Bodies.rectangle(START_X, FLOOR_Y - 40, 10, 40, {
+            collisionFilter: filter,
+            render: { fillStyle: `hsl(${hue}, 80%, 30%)` },
+            opacity: 0.6,
+          });
+
+          // JOINTS with stiffness (simulating ligaments)
+          const hipL = Constraint.create({
+            bodyA: this.torso,
+            bodyB: this.thighL,
+            pointA: { x: -5, y: 25 },
+            pointB: { x: 0, y: -15 },
+            stiffness: 0.8,
+            length: 0,
+          });
+          const hipR = Constraint.create({
+            bodyA: this.torso,
+            bodyB: this.thighR,
+            pointA: { x: 5, y: 25 },
+            pointB: { x: 0, y: -15 },
+            stiffness: 0.8,
+            length: 0,
+          });
+          const kneeL = Constraint.create({
+            bodyA: this.thighL,
+            bodyB: this.shinL,
+            pointA: { x: 0, y: 15 },
+            pointB: { x: 0, y: -15 },
+            stiffness: 0.8,
+            length: 0,
+          });
+          const kneeR = Constraint.create({
+            bodyA: this.thighR,
+            bodyB: this.shinR,
+            pointA: { x: 0, y: 15 },
+            pointB: { x: 0, y: -15 },
+            stiffness: 0.8,
+            length: 0,
+          });
+
+          this.parts = [
+            this.torso,
+            this.thighL,
+            this.shinL,
+            this.thighR,
+            this.shinR,
+          ];
+          this.comp = Composite.create({
+            bodies: this.parts,
+            constraints: [hipL, hipR, kneeL, kneeR],
+          });
+          Composite.add(engine.world, this.comp);
+        }
+
+        think() {
+          if (this.isDead) return;
+
+          // JOINT CONSTRAINTS (Lock-in: No 360-degree rotation)
+          this.limitJoint(this.torso, this.thighL, 0.8); // Hip limit
+          this.limitJoint(this.torso, this.thighR, 0.8);
+          this.limitJoint(this.thighL, this.shinL, 0.7); // Knee limit
+          this.limitJoint(this.thighR, this.shinR, 0.7);
+
+          // Anti-Glitch & Fall Death
+          if (Math.abs(this.torso.velocity.x) > 40) return this.die();
+          if (this.torso.position.y > FLOOR_Y - 40) return this.die();
+
+          // NEURAL NETWORK (4 inputs -> 4 muscle groups)
+          const inputs = [
+            this.torso.angle,
+            this.thighL.angle - this.torso.angle,
+            this.thighR.angle - this.torso.angle,
+            (this.torso.position.y - FLOOR_Y) / 100,
+          ];
+
+          const muscles = [];
+          for (let i = 0; i < 4; i++) {
+            let weights = this.dna.slice(i * 4, (i + 1) * 4);
+            let sum = inputs.reduce(
+              (acc, val, idx) => acc + val * weights[idx],
+              0
+            );
+            muscles.push(Math.tanh(sum));
+          }
+
+          // APPLY TORQUE (Muscles fighting gravity)
+          Body.setAngularVelocity(this.thighL, muscles[0] * 0.2);
+          Body.setAngularVelocity(this.thighR, muscles[1] * 0.2);
+          Body.setAngularVelocity(this.shinL, muscles[2] * 0.2);
+          Body.setAngularVelocity(this.shinR, muscles[3] * 0.2);
+
+          this.fitness = this.torso.position.x - START_X;
+        }
+
+        limitJoint(bodyA, bodyB, limit) {
+          const diff = bodyB.angle - bodyA.angle;
+          if (diff > limit) Body.setAngle(bodyB, bodyA.angle + limit);
+          if (diff < -limit) Body.setAngle(bodyB, bodyA.angle - limit);
+        }
+
+        die() {
+          this.isDead = true;
+          this.parts.forEach((p) => (p.render.opacity = 0.2));
+        }
+
+        remove() {
+          Composite.remove(engine.world, this.comp);
+        }
+      }
+
+      function spawn(parentDNA) {
+        const mRate = document.getElementById("mutateRange").value / 100;
+        document.getElementById("mutateVal").innerText =
+          Math.floor(mRate * 100) + "%";
+        for (let i = 0; i < POP_SIZE; i++) {
+          let dna =
+            parentDNA && i > 0
+              ? parentDNA.map((w) =>
+                  Math.random() < mRate ? w + (Math.random() - 0.5) : w
+                )
+              : parentDNA || null;
+          creatures.push(new Biped(dna));
+        }
+      }
+
+      function nextGen() {
+        creatures.sort((a, b) => b.fitness - a.fitness);
+        if (creatures[0].fitness > record) record = creatures[0].fitness;
+        document.getElementById("best").innerText =
+          Math.max(0, record).toFixed(1) + "m";
+        let winnerDNA = [...creatures[0].dna];
+        creatures.forEach((c) => c.remove());
+        creatures = [];
+        generation++;
+        document.getElementById("gen").innerText = generation;
+        frames = 0;
+        spawn(winnerDNA);
+      }
+
+      function loop() {
+        const speed = parseInt(document.getElementById("speedRange").value);
+        document.getElementById("speedVal").innerText = speed + "x";
+        for (let i = 0; i < speed; i++) {
+          Engine.update(engine, 16.6);
+          creatures.forEach((c) => c.think());
+          frames++;
+        }
+        let bestX = Math.max(...creatures.map((c) => c.torso.position.x));
+        Render.lookAt(render, {
+          min: { x: bestX - 400, y: 0 },
+          max: { x: bestX + 400, y: 800 },
+        });
+        if (frames > RUN_TIME * 60) nextGen();
+        requestAnimationFrame(loop);
+      }
+
+      window.onload = init;
+    </script>
+  </body>
+</html>
