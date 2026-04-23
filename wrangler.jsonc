@@ -2,22 +2,11 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "clankertest",
   "main": "index.html",
-  "compatibility_date": "2026-04-23", // ensure this is formatted correctly
-  "vars": {
-    // Key: Value pairs go here
-  }
-}
-
-  // Examples of common bindings (uncomment to use)
-  // "d1_databases": [{ "binding": "DB", "database_name": "my-db", "database_id": "..." }],
-  // "kv_namespaces": [{ "binding": "MY_KV", "id": "..." }],
-  // "r2_buckets": [{ "binding": "MY_BUCKET", "bucket_name": "..." }],
-  // "ai": { "binding": "AI" },
-
+  "compatibility_date": "2026-04-23",
+  "vars": {},
   "observability": {
     "enabled": true
   },
-
   "env": {
     "staging": {
       "name": "ClankerTest"
