@@ -1,15 +1,16 @@
-{
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "clankertest",
-  "main": "index.html",
-  "compatibility_date": "2026-04-23",
-  "vars": {},
-  "observability": {
-    "enabled": true
-  },
-  "env": {
-    "staging": {
-      "name": "ClankerTest"
-    }
-  }
-}
+# wrangler.toml
+$schema = "node_modules/wrangler/config-schema.json"
+name = "clankertest"
+main = "index.html"
+compatibility_date = "2026-04-23"
+
+[vars]
+# Key: Value pairs go here
+
+# Example of enabling observability
+[observability]
+enabled = true
+
+# Staging Environment
+[env.staging]
+name = "ClankerTest-Staging" # It is recommended to give envs unique names
